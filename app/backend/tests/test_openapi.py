@@ -69,5 +69,5 @@ def test_request_bodies_have_no_user_id():
     """利用者はトークンの sub から決める。リクエストに user_id を受け取る項目は無い。"""
     spec, gen = _load()
     for s in (spec, gen):
-        for name in ("PressRequest", "ConfirmRequest", "CancelRequest"):
+        for name in ("PressRequest", "ConfirmRequest", "CancelRequest", "ResetRequest"):
             assert "user_id" not in s["components"]["schemas"][name]["properties"]

@@ -119,6 +119,29 @@ paths:
         "404": {$ref: "#/components/responses/Error"}
         "409": {$ref: "#/components/responses/Error"}
         "429": {$ref: "#/components/responses/Error"}
+  /me/reset:
+    post:
+      operationId: resetMe
+      summary: デモ用リセット（自分の記録・点・レベルをすべて消して Lv1・0 点に戻す）
+      description: 本人の明示操作だけ。「点は減らない」の唯一の例外。同じ op_id の再送は何も消さない。
+      parameters:
+        - $ref: "#/components/parameters/TzOffset"
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/ResetRequest"}
+      responses:
+        "200":
+          description: リセット後の点とレベル（Progress と同じ項目）と、消した記録の数
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ResetResult"}
+        "400": {$ref: "#/components/responses/Error"}
+        "401": {$ref: "#/components/responses/Error"}
+        "409": {$ref: "#/components/responses/Error"}
+        "429": {$ref: "#/components/responses/Error"}
   /trend:
     get:
       operationId: getTrend
@@ -299,6 +322,23 @@ components:
         record_id: {type: string, format: uuid}
         cancelled: {type: boolean, enum: [true]}
         progress: {$ref: "#/components/schemas/Progress"}
+    ResetRequest:
+      type: object
+      required: [op_id]
+      additionalProperties: false
+      properties:
+        op_id: {type: string, format: uuid}
+    ResetResult:
+      type: object
+      required: [level, current_points, required_points, remaining_points, total_points, is_max, deleted]
+      properties:
+        level: {type: integer}
+        current_points: {type: integer}
+        required_points: {type: integer}
+        remaining_points: {type: integer}
+        total_points: {type: integer}
+        is_max: {type: boolean}
+        deleted: {type: integer, description: 消した記録の数（再送では 0）}
     TrendDay:
       type: object
       required: [date, avg_kg]
