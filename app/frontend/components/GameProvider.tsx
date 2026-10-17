@@ -6,7 +6,7 @@ import {
   createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode,
 } from "react";
 import { api, errorMessage, newOpId, ApiError } from "@/lib/api";
-import { playConfirm, playPop, prefersReducedMotion, tapFx, type PopOptions } from "@/lib/fx";
+import { deflateFx, playConfirm, playPop, prefersReducedMotion, tapFx, type PopOptions } from "@/lib/fx";
 import { findAction, mergeProgress, patchAction } from "@/lib/home";
 import type { ConfirmDetail, Home, LevelUp, PressResult, Trend } from "@/lib/types";
 
@@ -30,6 +30,7 @@ interface GameValue {
   goHome(): void;
   openTrend(): void;
   dismissToast(): void;
+  resetAll(): Promise<boolean>;
 }
 
 const Ctx = createContext<GameValue | null>(null);
@@ -228,8 +229,33 @@ export default function GameProvider({ children }: { children: ReactNode }) {
     }
   }, [loadHome, showToast, startPop]);
 
+  /** デモ用の全リセット。応答の点・レベルで更新し、記録の済・回数を空に戻して、今日の一手は取り直す */
+  const resetAll = useCallback(async (): Promise<boolean> => {
+    try {
+      const r = await api.resetMe(newOpId());
+      const { deleted, ...progress } = r;
+      void deleted;
+      setHome((h) => h && {
+        ...h, progress,
+        major: h.major.map((a) => ({ ...a, done: false, count: 0, record_id: null, confirm_state: "none" })),
+        minor: h.minor.map((a) => ({ ...a, done: false, count: 0, record_id: null, confirm_state: "none" })),
+        next_action_id: null,
+      });
+      setHeld(null);
+      setTrend(null);
+      setScreen({ name: "home" });
+      deflateFx();
+      showToast("すべて、無に帰した…。ここから、また…！");
+      loadHome(); // 今日の一手などを API の最新に
+      return true;
+    } catch (e) {
+      showToast(errorMessage(e), "error");
+      return false;
+    }
+  }, [loadHome, showToast]);
+
   const value = useMemo<GameValue>(() => ({
-    home, loadError, screen, held, toast, trend, trendError, reload, press, openDetail, confirm, goHome, openTrend, dismissToast,
-  }), [home, loadError, screen, held, toast, trend, trendError, reload, press, openDetail, confirm, goHome, openTrend, dismissToast]);
+    home, loadError, screen, held, toast, trend, trendError, reload, press, openDetail, confirm, goHome, openTrend, dismissToast, resetAll,
+  }), [home, loadError, screen, held, toast, trend, trendError, reload, press, openDetail, confirm, goHome, openTrend, dismissToast, resetAll]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

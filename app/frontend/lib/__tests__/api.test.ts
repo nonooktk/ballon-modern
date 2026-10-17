@@ -100,6 +100,15 @@ describe("api クライアント", () => {
     expect(e.message).toContain("もう一度");
   });
 
+  it("リセットは POST /me/reset に op_id を送り、429 は同じ op_id で 1 回だけ再送する", async () => {
+    const RESET = json(200, { ...PROGRESS, level: 1, total_points: 0, deleted: 3 });
+    responses = [ERR(429, "rate_limited", { "Retry-After": "1" }), RESET];
+    const r = await api.resetMe("op-r");
+    expect(r.deleted).toBe(3);
+    expect(calls.map((c) => c.url.split("/").slice(-2).join("/"))).toEqual(["me/reset", "me/reset"]);
+    expect(calls[1].body).toEqual({ op_id: "op-r" });
+  });
+
   it("確定と取り消しは同じキーで直列に送られる", async () => {
     const order: string[] = [];
     setFetchForTest(async (url) => {

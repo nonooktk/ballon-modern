@@ -458,3 +458,10 @@ export function playConfirm(o: { points: number; totalText: string; popAfter?: P
   play("mid", { points: o.points, totalText: o.totalText });
   if (o.popAfter) { const p = o.popAfter; setTimeout(() => play(popTier(p.fromLevel), { fromLevel: p.fromLevel, release: p.release }), 1300); }
 }
+
+/** リセットの小さい演出: レベルバーの風船がしぼむ。爆発や祝いは出さない。音は短い「しゅん」 */
+export function deflateFx(): void {
+  sfx.shun();
+  if (prefersReducedMotion()) return;
+  restart(byId("lb-balloon"), "deflate");
+}
