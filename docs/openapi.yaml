@@ -1,0 +1,315 @@
+openapi: 3.1.0
+info:
+  title: ballon-modern API
+  version: 1.0.0
+  description: |
+    ふうせん API の境界定義（正本）。画面（ポリゴン）と API・DB（ツボツボ）の境界はこのファイル。
+    実装の `/openapi.json` と、パス・メソッド・主要スキーマが一致していることをテストで確かめる。
+
+    共通ルール
+    - `/health` 以外は `Authorization: Bearer <Google の ID トークン>` と `X-Client-Tz-Offset`（端末の時差・分。-720〜840 の整数。例: 日本は 540）が必須。
+    - 端末の時計は送らない。日付・時間帯はサーバー時刻に時差を足して API が決める。
+    - 利用者は ID トークンの `sub` から API が決める。リクエストに user_id は無い。
+    - 書き込み（POST・PUT）は必ず `op_id`（UUID）を持つ。同じ `op_id` の再送は、何も変えずに同じ結果を返す。
+    - 同じ記録への操作（確定・取り消し・復活）は、前の応答を待ってから次を送る（直列）。
+    - エラーはすべて `{"error": "<コード>", "message": "<利用者に見せてよい文>"}`。
+servers:
+  - url: http://localhost:8000
+paths:
+  /health:
+    get:
+      operationId: health
+      summary: 死活確認（認証不要・DB に触れない・頻度制限に数えない）
+      responses:
+        "200":
+          description: 生きている
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status: {type: string, enum: [ok]}
+  /home:
+    get:
+      operationId: getHome
+      summary: ホームの材料（レベル・時間帯・行為の一覧・今日の一手・前回の体重）
+      description: 利用者の初回アクセスでは、ここで利用者を登録する（0 点・Lv1）。
+      parameters:
+        - $ref: "#/components/parameters/TzOffset"
+      security: [{bearerAuth: []}]
+      responses:
+        "200":
+          description: ホームの状態
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Home"}
+        "400": {$ref: "#/components/responses/Error"}
+        "401": {$ref: "#/components/responses/Error"}
+        "429": {$ref: "#/components/responses/Error"}
+  /records:
+    post:
+      operationId: pressAction
+      summary: 行為ボタンを押す（新規・復活・同日 2 回目・再送を API と DB が判定する）
+      parameters:
+        - $ref: "#/components/parameters/TzOffset"
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/PressRequest"}
+      responses:
+        "200":
+          description: |
+            処理結果。`reason` は granted（+10）／revived（取り消した行を戻した・点なし）／already_recorded（同日 2 回目・点なし）／replayed（同じ op_id の再送・何も変えない）。
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/PressResult"}
+        "400": {$ref: "#/components/responses/Error"}
+        "401": {$ref: "#/components/responses/Error"}
+        "404": {$ref: "#/components/responses/Error"}
+        "409": {$ref: "#/components/responses/Error"}
+        "429": {$ref: "#/components/responses/Error"}
+  /records/{record_id}/confirm:
+    put:
+      operationId: confirmRecord
+      summary: 先のページで確定する（+20 は一度だけ）
+      parameters:
+        - $ref: "#/components/parameters/TzOffset"
+        - $ref: "#/components/parameters/RecordId"
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/ConfirmRequest"}
+      responses:
+        "200":
+          description: 確定の結果
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ConfirmResult"}
+        "400": {$ref: "#/components/responses/Error"}
+        "401": {$ref: "#/components/responses/Error"}
+        "404": {$ref: "#/components/responses/Error"}
+        "409": {$ref: "#/components/responses/Error"}
+        "429": {$ref: "#/components/responses/Error"}
+  /records/{record_id}/cancel:
+    post:
+      operationId: cancelRecord
+      summary: 押した記録を取り消す（点は減らない）
+      parameters:
+        - $ref: "#/components/parameters/TzOffset"
+        - $ref: "#/components/parameters/RecordId"
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/CancelRequest"}
+      responses:
+        "200":
+          description: 取り消し済みの記録（すでに取り消されていれば期限を見ずに成功）
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/CancelResult"}
+        "400": {$ref: "#/components/responses/Error"}
+        "401": {$ref: "#/components/responses/Error"}
+        "404": {$ref: "#/components/responses/Error"}
+        "409": {$ref: "#/components/responses/Error"}
+        "429": {$ref: "#/components/responses/Error"}
+  /trend:
+    get:
+      operationId: getTrend
+      summary: 体重の 7 日平均（過去 28 日）と 4 週前との差
+      parameters:
+        - $ref: "#/components/parameters/TzOffset"
+      security: [{bearerAuth: []}]
+      responses:
+        "200":
+          description: 推移
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Trend"}
+        "400": {$ref: "#/components/responses/Error"}
+        "401": {$ref: "#/components/responses/Error"}
+        "429": {$ref: "#/components/responses/Error"}
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Google ID token (JWT)
+  parameters:
+    TzOffset:
+      name: X-Client-Tz-Offset
+      in: header
+      required: true
+      description: 端末の時差（UTC との差・分）。-720〜840 の整数。日本は 540。
+      schema: {type: integer, minimum: -720, maximum: 840}
+    RecordId:
+      name: record_id
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+  responses:
+    Error:
+      description: |
+        エラー。コード: bad_request・bad_detail・invalid_offset（400）、unauthorized・token_expired（401）、
+        not_found（404）、action_inactive・op_conflict・record_cancelled・cancel_expired・confirm_expired（409）、
+        rate_limited（429・Retry-After つき・同じ op_id で再送してよい）、daily_cap（429・再送しても通らない）、
+        service_unavailable（503）。
+      headers:
+        Retry-After:
+          description: rate_limited のときの待ち秒数
+          schema: {type: integer}
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/Error"}
+  schemas:
+    Error:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+          enum:
+            - bad_request
+            - bad_detail
+            - invalid_offset
+            - unauthorized
+            - token_expired
+            - not_found
+            - action_inactive
+            - op_conflict
+            - record_cancelled
+            - cancel_expired
+            - confirm_expired
+            - rate_limited
+            - daily_cap
+            - service_unavailable
+        message: {type: string}
+    Progress:
+      type: object
+      description: 点とレベル。画面は計算せず、この値を描く。
+      required: [level, current_points, required_points, remaining_points, total_points, is_max]
+      properties:
+        level: {type: integer}
+        current_points: {type: integer, description: 今のレベルの中で貯めた点}
+        required_points: {type: integer, description: 今のレベルが弾けるまでの点}
+        remaining_points: {type: integer, description: あと何点（Lv40 では 0）}
+        total_points: {type: integer, description: 累計点（取り消した行を含む）}
+        is_max: {type: boolean, description: 最大レベルに達している（満タン表示）}
+    LevelUp:
+      type: object
+      required: [before, after]
+      properties:
+        before: {type: integer}
+        after: {type: integer}
+    ConfirmState:
+      type: string
+      description: none=確定のない行為／open=未確定（+20 可）／done=確定済み／regrant_blocked=値は空だが点は付与済み（確定はできるが +20 は入らない）
+      enum: [none, open, done, regrant_blocked]
+    ActionState:
+      type: object
+      required: [id, label, icon, frequency, detail, done, count, record_id, confirm_state]
+      properties:
+        id: {type: string}
+        label: {type: string}
+        icon: {type: string, description: 絵文字}
+        frequency: {type: string, enum: [daily_once, repeatable]}
+        detail: {type: string, enum: [none, weight, meal]}
+        done: {type: boolean, description: 今日の有効な記録がある（札「済 ✓」）}
+        count: {type: integer, description: 今日の有効な記録の数（札「×n」）}
+        record_id: {type: [string, "null"], format: uuid, description: 直近に有効にした今日の記録の ID（無ければ null）}
+        confirm_state: {$ref: "#/components/schemas/ConfirmState"}
+    Home:
+      type: object
+      required: [progress, local_date, band, major, minor, next_action_id, last_weight_kg]
+      properties:
+        progress: {$ref: "#/components/schemas/Progress"}
+        local_date: {type: string, format: date, description: 端末のローカル日付（サーバー時刻＋時差）}
+        band: {type: string, enum: [morning, noon, night], description: "朝 4:00〜9:59／昼 10:00〜15:59／夜 16:00〜翌 3:59"}
+        major:
+          type: array
+          description: 時間帯の大 3 つ（並び順）
+          items: {$ref: "#/components/schemas/ActionState"}
+        minor:
+          type: array
+          description: 小 6 つ（大 3 つ以外の有効な行為）
+          items: {$ref: "#/components/schemas/ActionState"}
+        next_action_id: {type: [string, "null"], description: 今日の一手（無ければ null）}
+        last_weight_kg: {type: [number, "null"], description: 前回の体重（無ければ null）}
+    PressRequest:
+      type: object
+      required: [op_id, action_id]
+      additionalProperties: false
+      properties:
+        op_id: {type: string, format: uuid}
+        action_id: {type: string}
+    PressResult:
+      type: object
+      required: [record_id, reason, granted_points, confirm_state, progress, level_up]
+      properties:
+        record_id: {type: string, format: uuid}
+        reason: {type: string, enum: [granted, revived, already_recorded, replayed]}
+        granted_points: {type: integer, description: 付いた点（0 か 10。replayed は最初に付いた点）}
+        confirm_state: {$ref: "#/components/schemas/ConfirmState"}
+        progress: {$ref: "#/components/schemas/Progress"}
+        level_up:
+          oneOf:
+            - {$ref: "#/components/schemas/LevelUp"}
+            - {type: "null"}
+          description: レベルが上がったときだけ。再送（replayed）では出さない。
+    ConfirmRequest:
+      type: object
+      required: [op_id]
+      additionalProperties: false
+      description: weight_kg（体重の行為）か portion（食事の行為）のどちらか一方を送る。
+      properties:
+        op_id: {type: string, format: uuid}
+        weight_kg: {type: number, minimum: 20.0, maximum: 300.0, description: 小数 1 桁まで}
+        portion: {type: string, enum: [small, normal, large]}
+    ConfirmResult:
+      type: object
+      required: [record_id, granted_points, confirm_state, progress, level_up]
+      properties:
+        record_id: {type: string, format: uuid}
+        granted_points: {type: integer, description: 付いた点（+20 は一度だけ。それ以外は 0）}
+        confirm_state: {$ref: "#/components/schemas/ConfirmState"}
+        progress: {$ref: "#/components/schemas/Progress"}
+        level_up:
+          oneOf:
+            - {$ref: "#/components/schemas/LevelUp"}
+            - {type: "null"}
+    CancelRequest:
+      type: object
+      required: [op_id]
+      additionalProperties: false
+      properties:
+        op_id: {type: string, format: uuid}
+    CancelResult:
+      type: object
+      required: [record_id, cancelled, progress]
+      properties:
+        record_id: {type: string, format: uuid}
+        cancelled: {type: boolean, enum: [true]}
+        progress: {$ref: "#/components/schemas/Progress"}
+    TrendDay:
+      type: object
+      required: [date, avg_kg]
+      properties:
+        date: {type: string, format: date}
+        avg_kg: {type: [number, "null"], description: その日を末尾にした 7 日間の平均（値のある日だけ。1 日も無ければ null）。小数 1 桁（四捨五入）}
+    Trend:
+      type: object
+      required: [days, current_avg_kg, four_weeks_ago_avg_kg, diff_kg]
+      properties:
+        days:
+          type: array
+          description: 過去 28 日（古い日から今日まで）。34 日ぶんの体重を使う。
+          items: {$ref: "#/components/schemas/TrendDay"}
+        current_avg_kg: {type: [number, "null"], description: 今日の 7 日平均}
+        four_weeks_ago_avg_kg: {type: [number, "null"], description: 4 週前（28 日前）の 7 日平均}
+        diff_kg: {type: [number, "null"], description: 今日の平均 - 4 週前の平均（どちらかが無ければ null）。小数 1 桁}
