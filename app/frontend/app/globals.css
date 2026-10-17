@@ -179,3 +179,12 @@ button { font: inherit; color: inherit; }
 /* 効果音の ♪ トグル（レベルバーの右） */
 .sfx-toggle { flex: 0 0 auto; min-width: var(--tap-size); min-height: var(--tap-size); margin: -8px -8px -8px 0; background: none; border: 0; color: var(--gold-400); font: 800 1.3rem/1 var(--font-display); cursor: pointer; }
 .sfx-toggle[aria-pressed="false"] { color: var(--text-sub); text-decoration: line-through; }
+
+/* リセット（デモ用）。小さいボタンと確認の札 */
+.reset-btn { flex: 0 0 auto; min-height: 32px; padding: 0 var(--space-2); background: none; border: 1px solid var(--text-sub); border-radius: 999px; color: var(--text-sub); font: 700 .72rem/1 var(--font-body); cursor: pointer; }
+.confirm-card { position: fixed; z-index: 61; left: 50%; bottom: 20px; transform: translateX(-50%); width: min(448px, calc(100vw - 32px)); padding: var(--space-3); background: rgba(11,16,32,.98); border: 3px solid var(--gold-400); outline: 3px solid #000; box-shadow: 5px 5px 0 #000; }
+.confirm-card p { margin: 0 0 var(--space-3); font: 800 1rem/1.5 var(--font-display); }
+.confirm-card .row { display: flex; gap: var(--space-2); justify-content: flex-end; }
+.levelbar .lb-balloon.deflate { animation: deflate .7s ease-in both; }
+@keyframes deflate { 0% { transform: scale(1.2); } 60% { transform: scale(.4, .3); } 100% { transform: scale(.7); } }
+header h1 { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }

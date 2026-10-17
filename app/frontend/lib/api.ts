@@ -5,7 +5,7 @@
 import { API_BASE } from "./config";
 import { runSerial } from "./serial";
 import type {
-  CancelResult, ConfirmDetail, ConfirmResult, ErrorCode, Home, PressResult, Trend,
+  CancelResult, ConfirmDetail, ConfirmResult, ErrorCode, Home, PressResult, ResetResult, Trend,
 } from "./types";
 
 export class ApiError extends Error {
@@ -136,6 +136,10 @@ export const api = {
     runSerial(serialKey, () =>
       request<ConfirmResult>("PUT", `/records/${recordId}/confirm`, { op_id: opId, ...detail }),
     ),
+
+  /** デモ用の全リセット（本人の明示操作だけ）。op_id が同じ再送は何も消さない */
+  resetMe: (opId: string) =>
+    runSerial("reset", () => request<ResetResult>("POST", "/me/reset", { op_id: opId })),
 
   cancelRecord: (recordId: string, opId: string, serialKey: string) =>
     runSerial(serialKey, () =>

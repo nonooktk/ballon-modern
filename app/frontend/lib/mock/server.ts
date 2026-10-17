@@ -222,6 +222,18 @@ export async function mockFetch(url: string, init: RequestInit = {}): Promise<Re
     return json(200, result);
   }
 
+  if (method === "POST" && path === "/me/reset") {
+    const opId = String(body.op_id ?? "");
+    if (!opId) return err(400, "bad_request", "op_id が必要です。");
+    const prev = u.ops.get(`reset:${opId}`);
+    if (prev) return json(200, { ...(prev as object), deleted: 0 });
+    const deleted = u.records.length;
+    u.records = []; u.total = 0; u.weights = new Map(); u.ops.clear();
+    const result = { ...progressOf(0), deleted };
+    u.ops.set(`reset:${opId}`, result);
+    return json(200, result);
+  }
+
   const m = /^\/records\/([^/]+)\/(confirm|cancel)$/.exec(path);
   if (m) {
     const rec = u.records.find((r) => r.id === m[1]);

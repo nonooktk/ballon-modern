@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import AuthProvider, { useAuth } from "./AuthProvider";
 import DetailScreen from "./DetailScreen";
 import FxLayer from "./FxLayer";
@@ -13,12 +14,20 @@ import Zawa from "./Zawa";
 
 function Screens() {
   const { home, held, screen } = useGame();
+  // リセットは常時は出さない: ?demo=1、またはタイトルを 1.5 秒長押し
+  const [demo, setDemo] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("demo") === "1") void Promise.resolve().then(() => setDemo(true));
+  }, []);
+  const startHold = () => { timer.current = setTimeout(() => setDemo(true), 1500); };
+  const endHold = () => { if (timer.current) clearTimeout(timer.current); };
   return (
     <>
-      <LevelBar progress={home?.progress ?? null} held={held} />
+      <LevelBar progress={home?.progress ?? null} held={held} showReset={demo} />
       <main className="wrap" id="app-wrap">
         <header style={{ marginBottom: 16 }}>
-          <h1 style={{ font: "800 1.6rem/1.3 var(--font-display)", margin: "0 0 4px", color: "var(--gold-400)" }}>ふうせん</h1>
+          <h1 onPointerDown={startHold} onPointerUp={endHold} onPointerLeave={endHold} onPointerCancel={endHold} style={{ font: "800 1.6rem/1.3 var(--font-display)", margin: "0 0 4px", color: "var(--gold-400)" }}>ふうせん</h1>
           <p style={{ font: "800 1rem/1.4 var(--font-display)", margin: 0 }}>ふくらめ…っ！ 一日一押し</p>
         </header>
         {screen.name === "home" && <HomeScreen />}

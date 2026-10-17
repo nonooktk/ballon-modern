@@ -70,6 +70,11 @@ export interface CancelResult {
   progress: Progress;
 }
 
+export interface ResetResult extends Progress {
+  /** 消した記録の数（再送では 0） */
+  deleted: number;
+}
+
 export interface TrendDay {
   date: string;
   avg_kg: number | null;

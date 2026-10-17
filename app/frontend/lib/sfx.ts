@@ -230,6 +230,19 @@ export const sfx = {
       }
     });
   },
+  /** リセット: 短い「しゅん」（しぼむ音）。祝わない */
+  shun(): void {
+    run((c, t) => {
+      if (voices >= MAX_VOICES || !master) return;
+      voices++;
+      const o = c.createOscillator(); const g = c.createGain();
+      o.type = "sine"; o.frequency.setValueAtTime(900, t); o.frequency.exponentialRampToValueAtTime(180, t + 0.25);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.4, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.28);
+      o.connect(g); g.connect(master);
+      o.onended = () => { voices--; o.disconnect(); g.disconnect(); };
+      o.start(t); o.stop(t + 0.3);
+    });
+  },
   /** 風船の連鎖で小さな風船が弾けたときの小さい「パン」。1 秒に 8 回まで */
   smallPop(): void {
     const now = performance.now();
