@@ -1,0 +1,6 @@
+fastapi
+uvicorn[standard]
+pyjwt[crypto]
+psycopg[binary]
+psycopg-pool
+python-dotenv

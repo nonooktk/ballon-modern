@@ -1,0 +1,72 @@
+# API（app-ballon-api-nonooktk）の手動デプロイ。雛形。実行は統括の承認後だけ。
+# main への push では動かない（workflow_dispatch のみ）。
+# ログインは OIDC（ユーザー割り当てマネージド ID）。鍵・パスワードは持たない。手順: docs/azure-setup.md §4
+# 切り戻し: git_ref に前回デプロイしたコミットを指定して、もう一度実行する。
+name: deploy-api
+
+on:
+  workflow_dispatch:
+    inputs:
+      git_ref:
+        description: "配備するコミット（main の SHA または main）。切り戻しは前回の SHA"
+        required: true
+        default: main
+
+permissions:
+  id-token: write # OIDC ログイン用
+  contents: read
+
+concurrency:
+  group: deploy-api
+  cancel-in-progress: false
+
+env:
+  WEBAPP_NAME: app-ballon-api-nonooktk
+  RESOURCE_GROUP: rg-001-gen12
+
+jobs:
+  deploy:
+    name: Deploy API
+    runs-on: ubuntu-latest
+    # federated credential の subject を main に固定しているので、main 以外では失敗する。念のためここでも止める
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: git_ref の形式を確認
+        env:
+          GIT_REF: ${{ inputs.git_ref }}
+        run: |
+          if [[ ! "$GIT_REF" =~ ^(main|[0-9a-f]{7,40})$ ]]; then
+            echo "git_ref は main か 7〜40 桁の SHA にしてください" >&2
+            exit 1
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 (2026-10-17 確認)
+        with:
+          ref: ${{ inputs.git_ref }}
+
+      - name: zip を作る（app/backend の本体だけ。テストと .venv は含めない）
+        working-directory: app/backend
+        run: zip -r "$RUNNER_TEMP/api.zip" main.py requirements.txt
+
+      - uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0 (2026-10-17 確認)
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      # SCM_DO_BUILD_DURING_DEPLOYMENT=true（アプリ設定）により、Oryx が requirements.txt から依存を入れる
+      - name: zip deploy
+        run: |
+          az webapp deploy \
+            --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" \
+            --src-path "$RUNNER_TEMP/api.zip" --type zip
+
+      # 読み取りだけの確認（DB には触らない）。本物のスモークテストは統括承認のもと別に行う
+      - name: /health の確認
+        run: |
+          for i in 1 2 3 4 5 6; do
+            if curl -fsS "https://$WEBAPP_NAME.azurewebsites.net/health"; then exit 0; fi
+            sleep 20
+          done
+          echo "/health が通りません" >&2
+          exit 1

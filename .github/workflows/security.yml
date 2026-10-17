@@ -1,0 +1,95 @@
+# Snyk による依存脆弱性の CI ゲート。
+# high 以上の既知脆弱性が混入した場合に CI を失敗させ、マージをブロックする。
+#
+# このファイルは github-repo-security スキルの templates/security.yml を元に生成する。
+# 二重波かっこのプレースホルダ（22 など）は、SKILL.md の対応表に従い
+# 実値へ置換すること。置換前の状態は YAML として不正なので、必ず全て埋めること。
+#
+# サードパーティ Action はサプライチェーン改ざん対策として完全長コミット SHA に固定する
+# （タグは後から移動されうるため）。行末コメントに対応バージョンと確認日を併記する。
+# SHA の最新確認方法は SKILL.md「Step 2」を参照。actions 自体の更新は
+# dependabot.yml の github-actions エコシステムが自動 PR 化する。
+name: security
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# 同一ブランチの古い実行はキャンセルして無駄な実行を減らす
+concurrency:
+  group: security-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# 最小権限（読み取りのみ）
+permissions:
+  contents: read
+
+jobs:
+  # ── npm（Node.js）依存のスキャン ───────────────────────────────
+  # npm を使わないリポジトリでは、この snyk-npm ジョブ全体を削除する。
+  # ジョブ名 "Snyk (npm)" はブランチ保護の Required checks（contexts）と一致させる。
+  # 同一エコシステムを複数ディレクトリで持つ場合は、このジョブを複製し、
+  # name を "Snyk (npm:frontend)" のように命名する（SKILL.md Step 2 の命名規則を参照）。
+  snyk-npm:
+    name: Snyk (npm)
+    runs-on: ubuntu-latest
+    # public リポジトリでは fork からの PR に SNYK_TOKEN（secrets）が渡らずジョブが必ず失敗する。
+    # そのため fork PR ではスキップし、push と同一リポジトリ内 PR のときだけ実行する。
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 (2026-10-17 確認)
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0 (2026-10-17 確認)
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/frontend/package-lock.json
+
+      # ロックファイルどおりに依存を再現（Snyk の解決精度を上げる）
+      - name: install deps
+        working-directory: app/frontend
+        run: npm ci
+
+      # high 以上で失敗（マージ不可）。moderate 以下は許容する。
+      # 修正版が無い high を .snyk で例外受容する場合は、args 末尾に --policy-path=app/frontend/.snyk を追加する
+      # （Snyk は .snyk を自動で読まないことがあるため明示が必要。既定では付けない。SKILL.md「例外の受容運用（.snyk）」参照）。
+      - name: Snyk test (npm)
+        uses: snyk/actions/node@11b673cfb4b0dc0d860a1323caa199d54950dcce # master (2026-10-17 確認)
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --file=app/frontend/package.json --severity-threshold=high
+
+  # ── pip（Python）依存のスキャン ───────────────────────────────
+  # pip を使わないリポジトリでは、この snyk-pip ジョブ全体を削除する。
+  # 同一エコシステムを複数ディレクトリで持つ場合は name を "Snyk (pip:backend)" のように命名する。
+  snyk-pip:
+    name: Snyk (pip)
+    runs-on: ubuntu-latest
+    # fork PR ではスキップ（SNYK_TOKEN が渡らないため）
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 (2026-10-17 確認)
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0 (2026-10-17 確認)
+        with:
+          python-version: "3.12"
+
+      # Snyk の pip スキャンはインストール済み環境があると解決精度が上がるため、
+      # 先に依存を導入してから requirements.txt を対象にスキャンする。
+      - name: install deps
+        run: pip install -r app/backend/requirements.txt
+
+      # Snyk CLI を利用（monorepo でパスを明示できるため確実）。
+      # 再現性のため CLI もバージョンを固定する（最新は `npm view snyk version` で確認）。
+      - name: install snyk cli
+        run: npm i -g snyk@1.1308.1
+
+      # high 以上で失敗（マージ不可）。
+      # 修正版が無い high を .snyk で例外受容する場合は、末尾に --policy-path=app/backend/.snyk を追加する
+      # （Snyk は .snyk を自動で読まないことがあるため明示が必要。既定では付けない。SKILL.md「例外の受容運用（.snyk）」参照）。
+      - name: Snyk test (pip)
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: snyk test --file=app/backend/requirements.txt --package-manager=pip --severity-threshold=high

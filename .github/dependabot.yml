@@ -1,0 +1,49 @@
+# Dependabot: 依存の既知脆弱性・更新を週次で自動 PR 化する。
+# minor/patch はグループ化して PR 数を抑制し、major は個別 PR として影響を精査する。
+#
+# このファイルは github-repo-security スキルの templates/dependabot.yml を元に生成する。
+# /app/frontend / /app/backend は SKILL.md の対応表に従い実値へ置換すること。
+# 使わないエコシステム（npm / pip）のブロックは削除する。github-actions は常に残す。
+version: 2
+updates:
+  # ── npm（使わない場合はこのブロックを削除）────────────────────
+  # 同一エコシステム（npm）を複数ディレクトリに持つ場合は、この npm ブロックを
+  # ディレクトリの数だけ複製し、それぞれ directory: を変える（例 /frontend, /admin）。
+  # security.yml のジョブ複製（Snyk (npm:frontend) など）と対になる作業。
+  # groups 名も重複しないよう npm-minor-patch-frontend のように分ける。
+  - package-ecosystem: npm
+    directory: /app/frontend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # minor/patch はまとめて 1 PR に集約
+      npm-minor-patch:
+        update-types:
+          - minor
+          - patch
+
+  # ── pip（使わない場合はこのブロックを削除）────────────────────
+  - package-ecosystem: pip
+    directory: /app/backend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      pip-minor-patch:
+        update-types:
+          - minor
+          - patch
+
+  # ── GitHub Actions 自体の更新（常に残す）─────────────────────
+  # security.yml で完全長 SHA 固定した action を、Dependabot が自動で更新 PR 化する。
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      actions-minor-patch:
+        update-types:
+          - minor
+          - patch
