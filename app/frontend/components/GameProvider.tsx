@@ -124,7 +124,8 @@ export default function GameProvider({ children }: { children: ReactNode }) {
       const res = await api.cancelRecord(recordId, newOpId(), key);
       setHome((h) => h && patchAction({ ...h, progress: mergeProgress(h.progress, res.progress) }, actionId, (x) => {
         const count = Math.max(0, x.count - 1);
-        return { ...x, count, done: count > 0, record_id: count > 0 ? x.record_id : null };
+        // 今日の有効な記録が無くなったら、API の仕様どおり confirm_state は none に戻す
+        return { ...x, count, done: count > 0, record_id: count > 0 ? x.record_id : null, confirm_state: count > 0 ? x.confirm_state : "none" };
       }));
       const s = screenRef.current;
       if (s.name === "detail" && s.actionId === actionId) setScreen({ name: "home" });

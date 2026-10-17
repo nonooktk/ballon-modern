@@ -85,6 +85,6 @@ export interface Trend {
 export type ErrorCode =
   | "bad_request" | "bad_detail" | "invalid_offset" | "unauthorized" | "token_expired"
   | "not_found" | "action_inactive" | "op_conflict" | "record_cancelled" | "cancel_expired"
-  | "confirm_expired" | "rate_limited" | "daily_cap" | "service_unavailable"
+  | "confirm_expired" | "rate_limited" | "daily_cap" | "service_unavailable" | "internal_error"
   // 画面側で足す（API は返さない）
   | "network" | "unknown";
