@@ -159,7 +159,7 @@ components:
         エラー。コード: bad_request・bad_detail・invalid_offset（400）、unauthorized・token_expired（401）、
         not_found（404）、action_inactive・op_conflict・record_cancelled・cancel_expired・confirm_expired（409）、
         rate_limited（429・Retry-After つき・同じ op_id で再送してよい）、daily_cap（429・再送しても通らない）、
-        service_unavailable（503）。
+        service_unavailable（503）、internal_error（500）。
       headers:
         Retry-After:
           description: rate_limited のときの待ち秒数
@@ -189,6 +189,7 @@ components:
             - rate_limited
             - daily_cap
             - service_unavailable
+            - internal_error
         message: {type: string}
     Progress:
       type: object
@@ -223,7 +224,9 @@ components:
         done: {type: boolean, description: 今日の有効な記録がある（札「済 ✓」）}
         count: {type: integer, description: 今日の有効な記録の数（札「×n」）}
         record_id: {type: [string, "null"], format: uuid, description: 直近に有効にした今日の記録の ID（無ければ null）}
-        confirm_state: {$ref: "#/components/schemas/ConfirmState"}
+        confirm_state:
+          $ref: "#/components/schemas/ConfirmState"
+          description: 今日の有効な記録が無い（done=false）ときは none
     Home:
       type: object
       required: [progress, local_date, band, major, minor, next_action_id, last_weight_kg]
@@ -311,5 +314,5 @@ components:
           description: 過去 28 日（古い日から今日まで）。34 日ぶんの体重を使う。
           items: {$ref: "#/components/schemas/TrendDay"}
         current_avg_kg: {type: [number, "null"], description: 今日の 7 日平均}
-        four_weeks_ago_avg_kg: {type: [number, "null"], description: 4 週前（28 日前）の 7 日平均}
-        diff_kg: {type: [number, "null"], description: 今日の平均 - 4 週前の平均（どちらかが無ければ null）。小数 1 桁}
+        four_weeks_ago_avg_kg: {type: [number, "null"], description: "折れ線の左端（days の先頭＝27 日前）の 7 日平均。4 週前として扱う"}
+        diff_kg: {type: [number, "null"], description: 今日の平均 - 左端の平均（どちらかが無ければ null）。小数 1 桁}
