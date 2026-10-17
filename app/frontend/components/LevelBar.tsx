@@ -3,10 +3,11 @@
 import { balloonColor } from "@/lib/fx";
 import type { Progress } from "@/lib/types";
 import type { Held } from "./GameProvider";
+import ResetButton from "./ResetButton";
 import SfxToggle from "./SfxToggle";
 
 /** 最上部に固定のレベルバー。値は API の progress のまま描く。 */
-export default function LevelBar({ progress, held }: { progress: Progress | null; held: Held | null }) {
+export default function LevelBar({ progress, held, showReset = false }: { progress: Progress | null; held: Held | null; showReset?: boolean }) {
   let lv = progress?.level ?? 1;
   let pct = 0;
   let text: React.ReactNode = "読み込み中…";
@@ -45,6 +46,7 @@ export default function LevelBar({ progress, held }: { progress: Progress | null
           </div>
           <p className="lb-text" id="lb-text">{text}</p>
         </div>
+        {showReset && <ResetButton />}
         <SfxToggle />
       </div>
     </div>
