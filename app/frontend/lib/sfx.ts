@@ -51,15 +51,18 @@ function ensureCtx(): AudioContext | null {
     master = ctx.createGain();
     master.gain.value = MASTER_GAIN;
     const comp = ctx.createDynamicsCompressor(); // 重なっても割れないように。ドンが潰れないよう閾値は下げすぎない
-    comp.threshold.value = -6; comp.knee.value = 6; comp.ratio.value = 4; comp.attack.value = 0.003; comp.release.value = 0.2;
+    comp.threshold.value = -6; comp.knee.value = 6; comp.ratio.value = 4; comp.attack.value = 0.015; comp.release.value = 0.2;
     master.connect(comp); comp.connect(ctx.destination);
     // 弾けの歪み（軽い飽和）と、+3dB 程度のピーク許容
     const shaper = ctx.createWaveShaper();
     const curve = new Float32Array(1024);
-    for (let i = 0; i < 1024; i++) { const x = (i / 1023) * 2 - 1; curve[i] = Math.tanh(2.2 * x) / Math.tanh(2.2); }
-    shaper.curve = curve;
-    boomBus = ctx.createGain(); boomBus.gain.value = 1.41;
-    shaper.connect(boomBus); boomBus.connect(master);
+    for (let i = 0; i < 1024; i++) { const x = (i / 1023) * 2 - 1; curve[i] = Math.tanh(5 * x) / Math.tanh(5); }
+    shaper.curve = curve; shaper.oversample = "2x";
+    boomBus = ctx.createGain(); boomBus.gain.value = 0.5; // 重低音の分だけ全体が大きくなるので、RMS が前回比 +3dB 以内に収まるよう下げた
+    // 歪ませたあと、低域（120Hz）を持ち上げ、2〜4kHz を少し出してスピーカーでも輪郭が出るようにする。弾けの経路だけ
+    const low = ctx.createBiquadFilter(); low.type = "peaking"; low.frequency.value = 120; low.Q.value = 0.9; low.gain.value = 5;
+    const presence = ctx.createBiquadFilter(); presence.type = "peaking"; presence.frequency.value = 3000; presence.Q.value = 0.8; presence.gain.value = 4;
+    shaper.connect(low); low.connect(presence); presence.connect(boomBus); boomBus.connect(master);
     boomIn = shaper;
     // iOS 解錠: 無音バッファを 1 回鳴らす
     const b = ctx.createBuffer(1, 1, 22050);
@@ -76,19 +79,29 @@ export function sfxState(): AudioContextState | "none" {
 
 let popTimes: number[] = [];
 
-/** ドン: サブベース（55→30Hz）＋ノイズの破裂（4kHz→200Hz）を、歪みを通して鳴らす */
+/** ドン: 80〜120Hz の芯（110→70Hz）＋倍音（ミッシングファンダメンタル）＋アタックのクリック＋沈む余韻。歪みと低域 EQ を通す。
+ *  スマホ・ノート PC のスピーカーは 55Hz 以下をほぼ出せないので、芯を 80Hz 以上に置く */
 function boom(c: AudioContext, at: number): void {
   if (!boomIn) return;
-  if (voices >= MAX_VOICES) return;
-  voices++;
-  const o = c.createOscillator(); const g = c.createGain();
-  o.type = "sine";
-  o.frequency.setValueAtTime(55, at); o.frequency.exponentialRampToValueAtTime(30, at + 0.4);
-  g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(1.0, at + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, at + 0.45);
-  o.connect(g); g.connect(boomIn);
-  o.onended = () => { voices--; o.disconnect(); g.disconnect(); };
-  o.start(at); o.stop(at + 0.47);
-  noise(c, at, 0.6, 0.9, 4000, 200, boomIn);
+  const dest = boomIn;
+  const voice = (f0: number, f1: number, vol: number, dur: number) => {
+    if (voices >= MAX_VOICES) return;
+    voices++;
+    const o = c.createOscillator(); const g = c.createGain();
+    o.type = "sine";
+    o.frequency.setValueAtTime(f0, at); o.frequency.exponentialRampToValueAtTime(f1, at + 0.5);
+    g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(vol, at + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+    o.connect(g); g.connect(dest);
+    o.onended = () => { voices--; o.disconnect(); g.disconnect(); };
+    o.start(at); o.stop(at + dur + 0.02);
+  };
+  voice(110, 70, 1.0, 1.1); // 芯
+  voice(220, 140, 0.35, 0.8); // 2 倍
+  voice(330, 210, 0.2, 0.6); // 3 倍
+  noise(c, at, 0.02, 1.0, 9000, 3000, dest); // アタックのクリック（ノイズ）
+  tone(c, 120, at, 0.012, "square", 0.8, dest); // アタックのクリック（矩形波 1 周期ほど）
+  noise(c, at, 0.6, 0.9, 4000, 200, dest); // 破裂
+  noise(c, at, 1.1, 0.8, 300, 80, dest); // ボワンと沈む余韻（カットオフ 300→80Hz）
 }
 
 /** パチパチの余韻: 短いノイズを 0.3〜1.2 秒の間にランダムに n 回 */
@@ -168,6 +181,7 @@ export const sfx = {
   tap(step: number): void {
     run((c, t) => {
       const up = Math.min(Math.max(step, 0), 3) * 2; // 1 段ごとに全音
+      tone(c, 100, t, 0.03, "sine", 0.7); // 手応えの「トッ」
       tone(c, hz(988, up), t, 0.09, "square", 0.35);
       tone(c, hz(1319, up), t + 0.06, 0.22, "square", 0.3);
       tone(c, hz(2637, up), t + 0.06, 0.12, "triangle", 0.12); // きらっの倍音
@@ -176,9 +190,10 @@ export const sfx = {
   /** 確定（中演出）: 2 音の「決まった」音 */
   confirm(): void {
     run((c, t) => {
-      tone(c, 784, t, 0.18, "triangle", 0.5);
-      tone(c, 1047, t + 0.13, 0.4, "triangle", 0.55);
-      tone(c, 2093, t + 0.13, 0.25, "sine", 0.12);
+      tone(c, 90, t, 0.06, "sine", 0.8); // 低い手応え
+      tone(c, 622, t, 0.18, "triangle", 0.5); // 一段低く
+      tone(c, 831, t + 0.13, 0.4, "triangle", 0.55);
+      tone(c, 1661, t + 0.13, 0.25, "sine", 0.12);
     });
   },
   /** ♪ を ON にしたときの小さな確認音 */

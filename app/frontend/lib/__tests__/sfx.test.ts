@@ -13,7 +13,7 @@ async function load(opts: { stored?: string; reduced?: boolean }) {
     createBuffer() { return { getChannelData: () => new Float32Array(8) }; }
     createBufferSource() { return { connect() {}, start() {}, stop() {}, disconnect() {} }; }
     createOscillator() { return { type: "", frequency: { value: 0 }, connect() {}, disconnect() {}, start() {}, stop() {} }; }
-    createBiquadFilter() { return { frequency: { setValueAtTime() {}, exponentialRampToValueAtTime() {} }, connect() {}, disconnect() {} }; }
+    createBiquadFilter() { return { type: "", Q: { value: 0 }, gain: { value: 0 }, frequency: { value: 0, setValueAtTime() {}, exponentialRampToValueAtTime() {} }, connect() {}, disconnect() {} }; }
     resume() { return Promise.resolve(); } suspend() { return Promise.resolve(); }
   }
   const store: Record<string, string> = opts.stored ? { "ballon.sfx": opts.stored } : {};
