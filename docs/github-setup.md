@@ -1,15 +1,15 @@
 # GitHub 設定手順書（ふうせん / ballon-modern）
 
 統括がコピペで実行する手順です。タキシードサムは **リポジトリの作成・push・Snyk トークンの登録・ブランチ保護を実行していません**（リリース規定 の push 前確認のため）。
-基線の正本は保管庫の `00_組織/社内規定/セキュリティ規定.md` §6 と `.claude/skills/github-repo-security/SKILL.md`。
+基線の正本は保管庫の `00_組織/社内規定/セキュリティ規定.md` §6 と toolmaker 保管庫のスキル `github-repo-security`。
 
-- 実行する場所: 保管庫のルート（`/Users/mitsuru/Desktop/toolmaker`）。`gh` は `nonooktk` でログイン済み
+- 実行する場所: `~` 以下の toolmaker 保管庫のルート（「保管庫ルート」）。このリポジトリは保管庫の `apps/ballon-modern/` にある。`gh` は `nonooktk` でログイン済み
 - 順序は守る。**SNYK_TOKEN の登録 → push → ブランチ保護**（逆にすると、最初の push が保護で止まる、または Snyk が 401 で赤くなる）
 
 ## 1. 最初の push の前に、対象ファイル一覧を確認する
 
 ```bash
-cd /Users/mitsuru/Desktop/toolmaker/apps/ballon-modern
+cd <保管庫ルート>/apps/ballon-modern
 git status --short                      # 何も出ない（コミット済み）こと
 git show --stat --name-only HEAD        # コミットに入っているファイルの一覧
 # 秘匿値が混ざっていないかの簡易確認（ヒットしないこと）
@@ -20,7 +20,7 @@ git ls-files | grep -E '(^|/)\.env($|\.)' | grep -v '\.env\.example' || echo ".e
 ## 2. リポジトリを作る（空のまま。Public）
 
 ```bash
-cd /Users/mitsuru/Desktop/toolmaker/apps/ballon-modern
+cd <保管庫ルート>/apps/ballon-modern
 gh repo create nonooktk/ballon-modern --public \
   --description "ふうせん: 頑張らなくていいダイエット記録（Next.js・FastAPI・PostgreSQL）"
 git remote add origin https://github.com/nonooktk/ballon-modern.git
@@ -32,7 +32,7 @@ git branch -M main
 Dependabot の PR には Actions の secret が渡らないため、**2 つのストアの両方**に入れる。値は画面に出さない。
 
 ```bash
-cd /Users/mitsuru/Desktop/toolmaker
+cd <保管庫ルート>
 SNYK_TOKEN=$(grep '^SNYK_TOKEN=' .env | cut -d= -f2-)   # 保管庫の .env から読む（出力しない）
 printf '%s' "$SNYK_TOKEN" | gh secret set SNYK_TOKEN --repo nonooktk/ballon-modern
 printf '%s' "$SNYK_TOKEN" | gh secret set SNYK_TOKEN --repo nonooktk/ballon-modern --app dependabot
@@ -46,7 +46,7 @@ gh secret list --repo nonooktk/ballon-modern --app dependabot
 ## 4. 最初の push
 
 ```bash
-cd /Users/mitsuru/Desktop/toolmaker/apps/ballon-modern
+cd <保管庫ルート>/apps/ballon-modern
 git push -u origin main
 ```
 
@@ -64,8 +64,8 @@ Required checks は **ジョブ名と文字列一致**させる（`ci.yml` と `
 | `Snyk (pip)` | `.github/workflows/security.yml` |
 
 ```bash
-cd /Users/mitsuru/Desktop/toolmaker
-S=.claude/skills/github-repo-security/scripts/setup-github-security.sh
+cd <保管庫ルート>
+S=<保管庫のスキル github-repo-security>/scripts/setup-github-security.sh
 
 # まず dry-run（変更せず、実行予定を表示）
 $S nonooktk/ballon-modern \
