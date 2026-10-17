@@ -260,6 +260,7 @@ function chain(t: Tier, color: string, ox: number, oy: number, onFinal: () => vo
       if (el >= b.pop) {
         b.done = true;
         spray(b.x, b.y, b.big ? 300 : 45, b.c, b.big ? 2.2 : 1.1);
+        if (!b.big) sfx.smallPop();
         if (b.big) onFinal();
         else if (++lines % 6 === 0) {
           fx.style.setProperty("--ox", b.x / d + "px"); fx.style.setProperty("--oy", b.y / d + "px");

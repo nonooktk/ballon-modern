@@ -8,7 +8,8 @@ async function load(opts: { stored?: string; reduced?: boolean }) {
     state = "running"; currentTime = 0; sampleRate = 8000; destination = {};
     constructor() { made.push(this); }
     createGain() { return { gain: { value: 0, setValueAtTime() {}, exponentialRampToValueAtTime() {} }, connect() {}, disconnect() {} }; }
-    createDynamicsCompressor() { return { connect() {} }; }
+    createDynamicsCompressor() { const a = () => ({ value: 0 }); return { threshold: a(), knee: a(), ratio: a(), attack: a(), release: a(), connect() {} }; }
+    createWaveShaper() { return { curve: null, connect() {} }; }
     createBuffer() { return { getChannelData: () => new Float32Array(8) }; }
     createBufferSource() { return { connect() {}, start() {}, stop() {}, disconnect() {} }; }
     createOscillator() { return { type: "", frequency: { value: 0 }, connect() {}, disconnect() {}, start() {}, stop() {} }; }
