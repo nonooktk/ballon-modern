@@ -2,6 +2,8 @@
 // DOM は FxLayer / LevelBar が描いた要素を id で引いて動かす（canvas とクラスの付け外しは React の外）。
 // 点やレベルの計算は持たない。レベルは API の応答（progress / level_up）をそのまま受け取る。
 
+import { sfx } from "./sfx";
+
 const COLORS = ["#c8102e", "#e8c766", "#c9ced6", "#8e5cd9", "#ff7a1a", "#ffffff"];
 const COLOR_NAMES = ["赤", "金", "銀", "紫", "朱金", "虹"];
 const BALL = ["#c9ced6", "#e8c766", "#c8102e", "#ffffff"];
@@ -121,6 +123,7 @@ export function tapFx(button: HTMLElement, points: number): string {
   const y = r.top + r.height / 2;
   const live = byId("small-live");
   if (live) live.textContent = `${s.word} ${points} 点`;
+  sfx.tap(Math.min(streak, STREAK.length - 1)); // 効果音（OFF のときは何もしない）
   if (prefersReducedMotion()) { floatPt(x, y, `+${points} ${s.word}`); return s.word; }
 
   restart(button, "hit");
@@ -359,6 +362,7 @@ export interface PopOptions {
 /** 動きを止める設定: レベルバーの横に 2 秒だけ静止で出す */
 function reducedPop(fromLv: number, release: () => void): void {
   release();
+  sfx.pop(fromLv);
   const lb = document.querySelector(".levelbar");
   if (!lb) return;
   const el = document.createElement("span");
@@ -398,6 +402,7 @@ function play(kind: "mid" | "pop1" | "pop3" | "pop5", o: { fromLevel?: number; r
   fx.classList.add("t-" + kind);
   const swell = isPop ? Math.max(450, t.reach) : 0;
   if (isPop && lbEl) { lbEl.style.setProperty("--sw", swell + "ms"); lbEl.classList.add("swell"); }
+  if (t.reach && isPop) sfx.reach(t.reach);
   if (t.reach) { fx.classList.add("card"); fxq(".reach")?.classList.remove("hide"); fxq(".reach")?.classList.add("go"); }
   later(() => { // 破裂・開放
     fxq(".reach")?.classList.add("hide");
@@ -429,8 +434,8 @@ function play(kind: "mid" | "pop1" | "pop3" | "pop5", o: { fromLevel?: number; r
     if (t.bands >= 2) fxq(".b2")?.classList.add("go2");
     if (t.bands >= 3) fxq(".b3")?.classList.add("go3");
     if (t.shake) restart(byId("app-wrap"), "tapshake");
-    if (isPop) chain(t, color, ox, oy, () => { showText(); finish(1500); });
-    else { burst(t, color, ox, oy); showText(); finish(1500); }
+    if (isPop) { sfx.pop(fromLv); chain(t, color, ox, oy, () => { showText(); finish(1500); }); }
+    else { sfx.confirm(); burst(t, color, ox, oy); showText(); finish(1500); }
   }, swell);
 }
 
@@ -445,6 +450,7 @@ export function playConfirm(o: { points: number; totalText: string; popAfter?: P
   if (prefersReducedMotion()) {
     const live = byId("fx-live");
     if (live) live.textContent = `記録完了。${o.points} 点`;
+    sfx.confirm();
     if (o.popAfter) reducedPop(o.popAfter.fromLevel, o.popAfter.release);
     return;
   }
