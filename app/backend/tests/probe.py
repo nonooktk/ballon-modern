@@ -29,7 +29,7 @@ FUNCTIONS = [
     "select app_home_state('00000000-0000-0000-0000-000000000000', current_date)",
     "select app_trend('00000000-0000-0000-0000-000000000000', current_date)",
 ]
-# 全テーブルに権限が無いか／全員（public）に実行権限が残る関数が無いか／ballon_api が実行できる関数は 7 本だけか
+# 全テーブルに権限が無いか／全員（public）に実行権限が残る関数が無いか／ballon_api が実行できる関数は 8 本だけか
 SQL_TABLE_PRIV = (
     "select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace "
     "where n.nspname = 'public' and c.relkind = 'r' "
@@ -46,7 +46,7 @@ SQL_API_EXEC = (
     "where n.nspname = 'public' and p.prokind = 'f' and has_function_privilege('ballon_api', p.oid, 'execute') "
     "order by 1"
 )
-API_FUNCTIONS = ["app_cancel", "app_confirm", "app_home_state", "app_login", "app_press", "app_total", "app_trend"]
+API_FUNCTIONS = ["app_cancel", "app_confirm", "app_home_state", "app_login", "app_press", "app_reset_me", "app_total", "app_trend"]
 
 
 def _denied(conn: psycopg.Connection, sql: str) -> bool:
@@ -82,5 +82,5 @@ def run_probe(admin_url: str) -> list[str]:
         problems += [f"public に実行権限が残る関数: {r[0]}" for r in conn.execute(SQL_PUBLIC_EXEC)]
         api_exec = [r[0] for r in conn.execute(SQL_API_EXEC)]
         if api_exec != API_FUNCTIONS:
-            problems.append(f"ballon_api が実行できる関数が 7 本と違う: {api_exec}")
+            problems.append(f"ballon_api が実行できる関数が 8 本と違う: {api_exec}")
     return problems

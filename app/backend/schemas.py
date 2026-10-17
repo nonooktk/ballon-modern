@@ -111,6 +111,15 @@ class CancelResult(BaseModel):
     progress: Progress
 
 
+class ResetRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    op_id: UUID
+
+
+class ResetResult(Progress):
+    deleted: int
+
+
 class TrendDay(BaseModel):
     date: date
     avg_kg: float | None

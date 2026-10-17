@@ -60,6 +60,9 @@ class Repo:
     def cancel(self, op_id: UUID, record_id: UUID) -> dict[str, Any]:
         return self._call("select app_cancel(%s::uuid, %s::uuid, %s::uuid)", (op_id, record_id))
 
+    def reset(self, op_id: UUID) -> dict[str, Any]:
+        return self._call("select app_reset_me(%s::uuid, %s::uuid)", (op_id,))
+
     def total(self) -> dict[str, Any]:
         with self._pool.connection() as conn:
             row = conn.execute("select app_total(%s::uuid)", (self._user_id,)).fetchone()

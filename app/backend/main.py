@@ -40,6 +40,8 @@ from schemas import (
     Home,
     PressRequest,
     PressResult,
+    ResetRequest,
+    ResetResult,
     Trend,
 )
 from trend import build_trend
@@ -266,6 +268,12 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
     )
     def cancel(record_id: UUID, body: CancelRequest, ctx: CtxDep):
         return ctx.run(ctx.repo.cancel, body.op_id, record_id)
+
+    @app.post("/me/reset", response_model=ResetResult, responses=_ERR, operation_id="resetMe")
+    def reset_me(body: ResetRequest, ctx: CtxDep):
+        """デモ用: 自分の記録・点・レベルをすべて消して Lv1・0 点に戻す（本人の明示操作だけ）。"""
+        res = ctx.run(ctx.repo.reset, body.op_id)
+        return {**res["progress"], "deleted": res["deleted"]}
 
     @app.get("/trend", response_model=Trend, responses=_ERR, operation_id="getTrend")
     def get_trend(ctx: CtxDep):
