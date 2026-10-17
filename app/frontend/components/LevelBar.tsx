@@ -3,6 +3,7 @@
 import { balloonColor } from "@/lib/fx";
 import type { Progress } from "@/lib/types";
 import type { Held } from "./GameProvider";
+import SfxToggle from "./SfxToggle";
 
 /** 最上部に固定のレベルバー。値は API の progress のまま描く。 */
 export default function LevelBar({ progress, held }: { progress: Progress | null; held: Held | null }) {
@@ -44,6 +45,7 @@ export default function LevelBar({ progress, held }: { progress: Progress | null
           </div>
           <p className="lb-text" id="lb-text">{text}</p>
         </div>
+        <SfxToggle />
       </div>
     </div>
   );
