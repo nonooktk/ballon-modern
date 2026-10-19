@@ -55,7 +55,8 @@ class Home(BaseModel):
 class PressRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     op_id: UUID
-    action_id: str = Field(min_length=1, max_length=64)
+    action_id: str = Field(min_length=1, max_length=64, pattern=r"^[a-z][a-z0-9_]{0,63}$")
+    # 行為 ID は英小文字・数字・_ だけ（NUL や制御文字は 400。監査 F-7）
 
 
 class PressResult(BaseModel):

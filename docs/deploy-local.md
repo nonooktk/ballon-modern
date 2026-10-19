@@ -5,6 +5,8 @@
 - 前提: `az login` 済み、サブスクリプション `9b680e6d-e5a6-4381-aad5-a30afcbc8459`、RG `rg-001-gen12`。Web App 2 つ作成済み（API: `app-ballon-api-nonooktk`、画面: `app-ballon-web-nonooktk`）
 - 作業ディレクトリ: リポジトリのルート。zip は `dist/`（git 管理外）に出る
 
+> リポジトリの実体は `~/repos/ballon-modern`（iCloud 同期の外）。`apps/ballon-modern` はそこへのシンボリックリンク（2026-10-18 に iCloud 退避で .git が壊れたため移設）。担当者は `git worktree add ... ~/repos/ballon-modern-wt-<name>` で自分専用の作業ツリーを作り、同じ作業ツリーで複数人が git を動かさない。
+
 ## 1. アプリ設定を確認する（キー名だけ。値は出さない）
 
 ```bash

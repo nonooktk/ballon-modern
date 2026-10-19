@@ -338,6 +338,11 @@ az postgres flexible-server show -g "$RG" -n "$PG_SERVER" --query '{loc:location
 
 初期は統括が手元から `ballon_owner` で流す（§2.1 の IP 許可が要る）。T2 のマイグレーションは `db/` に置かれる。本番で流す手順は T2 の完了後に追記する。
 
+### ⑧ ファイアウォールの扱い（監査 F-4・2026-10-18）
+
+- 作業用の一時規則 `allow-ballon-migrate` は 2026-10-18 に統括承認のうえ削除済み。作業で作ったら必ず §2.5 で削除する。
+- `AllowAllAzureServicesAndResourcesWithinAzureIps_*`（0.0.0.0 規則）と公開アクセスは、TV_MVP の Container Apps が依存している可能性があるため受容（統括判断 2026-10-18）。2026-11 中に、Container Apps の送信 IP 限定かプライベートエンドポイントへの置換を判断する（負債台帳 TD-028）。
+
 ## 7. 切り戻しと後片付け
 
 | 場面 | 手順 |

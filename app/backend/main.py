@@ -182,8 +182,30 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
         yield
         svc.close()
 
-    app = FastAPI(title="ballon-modern API", version="1.0.0", lifespan=lifespan)
+    # 本番では /docs・/redoc・/openapi.json を出さない（監査 F-8）
+    docs = not svc.settings.is_production
+    app = FastAPI(
+        title="ballon-modern API",
+        version="1.0.0",
+        lifespan=lifespan,
+        docs_url="/docs" if docs else None,
+        redoc_url="/redoc" if docs else None,
+        openapi_url="/openapi.json" if docs else None,
+    )
     app.state.svc = svc
+
+    # セキュリティヘッダ（監査 F-1）。API は JSON だけを返すので CSP は全部拒否でよい
+    @app.middleware("http")
+    async def _security_headers(request: Request, call_next):
+        resp = await call_next(request)
+        resp.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        resp.headers["X-Content-Type-Options"] = "nosniff"
+        resp.headers["Referrer-Policy"] = "no-referrer"
+        resp.headers["Cache-Control"] = "no-store"
+        resp.headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'"
+        if "server" in resp.headers:
+            del resp.headers["server"]
+        return resp
 
     # CORS: 画面の URL と localhost だけ。使うメソッド・ヘッダーに絞る
     app.add_middleware(
