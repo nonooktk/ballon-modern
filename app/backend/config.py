@@ -18,7 +18,7 @@ class Settings:
     database_url: str = ""
     google_client_id: str = ""
     allowed_origins: list[str] = field(default_factory=lambda: ["http://localhost:3000"])
-    app_env: str = "development"
+    app_env: str = "production"  # 未設定なら本番扱い（fail-closed。監査 F-6）
     dev_auth_bypass: bool = False
     pool_max: int = 5
     # レート制限（ARCHITECTURE §8。暫定値・緩い側から）
@@ -34,7 +34,7 @@ class Settings:
 
 def load_settings() -> Settings:
     origins = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",") if o.strip()]
-    app_env = os.getenv("APP_ENV", "development").strip() or "development"
+    app_env = os.getenv("APP_ENV", "production").strip() or "production"
     wants_bypass = os.getenv("DEV_AUTH_BYPASS", "").strip() == "1"
     s = Settings(
         database_url=os.getenv("DATABASE_URL", ""),

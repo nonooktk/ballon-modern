@@ -86,6 +86,27 @@ gh api -X PATCH repos/nonooktk/ballon-modern \
   -f 'security_and_analysis[secret_scanning_push_protection][status]=enabled'
 ```
 
+### 5.2 ルールセットの追加項目と fork PR の承認（監査 F-10。統括承認後にコーディネーターが実行）
+
+```bash
+# security-baseline ルールセットに force push 禁止・ブランチ削除禁止を足す
+ID=$(gh api repos/nonooktk/ballon-modern/rulesets --jq '.[]|select(.name=="security-baseline")|.id')
+gh api repos/nonooktk/ballon-modern/rulesets/$ID > /tmp/rs.json
+python3 - <<'PY'
+import json
+rs=json.load(open('/tmp/rs.json'))
+types={r['type'] for r in rs['rules']}
+for t in ('non_fast_forward','deletion'):
+    if t not in types: rs['rules'].append({'type': t})
+json.dump({k:rs[k] for k in ('name','target','enforcement','conditions','rules','bypass_actors') if k in rs}, open('/tmp/rs_new.json','w'))
+PY
+gh api -X PUT repos/nonooktk/ballon-modern/rulesets/$ID --input /tmp/rs_new.json --jq '[.rules[].type]'
+
+# fork からの PR は外部の投稿者すべてで承認を要する
+gh api -X PUT repos/nonooktk/ballon-modern/actions/permissions/fork-pr-workflows-policy -f run_workflows_from_fork_pull_requests=false 2>/dev/null || true
+gh api -X PUT repos/nonooktk/ballon-modern/actions/permissions/fork-pr-contributor-approval -f approval_policy=all_external_contributors
+```
+
 ## 6. 確認
 
 ```bash

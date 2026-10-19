@@ -46,6 +46,11 @@ SQL_API_EXEC = (
     "where n.nspname = 'public' and p.prokind = 'f' and has_function_privilege('ballon_api', p.oid, 'execute') "
     "order by 1"
 )
+# ballon_api が他のロールのメンバーになっていないか（0 行。監査 F-9）
+SQL_MEMBERSHIP = (
+    "select r.rolname from pg_auth_members m join pg_roles r on r.oid = m.roleid "
+    "join pg_roles u on u.oid = m.member where u.rolname = 'ballon_api'"
+)
 API_FUNCTIONS = ["app_cancel", "app_confirm", "app_home_state", "app_login", "app_press", "app_reset_me", "app_total", "app_trend"]
 
 
@@ -80,6 +85,7 @@ def run_probe(admin_url: str) -> list[str]:
                 problems.append(f"関数が通らない: {sql} ({type(e).__name__})")
         problems += [f"テーブル権限が残る: {r[0]}" for r in conn.execute(SQL_TABLE_PRIV)]
         problems += [f"public に実行権限が残る関数: {r[0]}" for r in conn.execute(SQL_PUBLIC_EXEC)]
+        problems += [f"ballon_api が他ロールのメンバー: {r[0]}" for r in conn.execute(SQL_MEMBERSHIP)]
         api_exec = [r[0] for r in conn.execute(SQL_API_EXEC)]
         if api_exec != API_FUNCTIONS:
             problems.append(f"ballon_api が実行できる関数が 8 本と違う: {api_exec}")

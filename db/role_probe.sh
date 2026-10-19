@@ -33,4 +33,12 @@ if [[ -z "$rows" ]]; then echo "OK   テーブル権限なし"; else echo "NG   
 rows=$(psql "$DATABASE_URL_ADMIN" -At -c "select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.prokind = 'f' and exists (select 1 from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a where a.grantee = 0 and a.privilege_type = 'EXECUTE')")
 if [[ -z "$rows" ]]; then echo "OK   public に実行権限が残る関数なし"; else echo "NG   public に実行権限が残る関数: $rows"; fail=1; fi
 
+# ballon_api が他のロールのメンバーになっていないか（0 行。監査 F-9）
+rows=$(psql "$DATABASE_URL_ADMIN" -At -c "select r.rolname from pg_auth_members m join pg_roles r on r.oid = m.roleid join pg_roles u on u.oid = m.member where u.rolname = 'ballon_api'")
+if [[ -z "$rows" ]]; then echo "OK   他ロールのメンバーではない"; else echo "NG   他ロールのメンバー: $rows"; fail=1; fi
+# 他の DB へ接続できるか（情報。PostgreSQL の既定では PUBLIC に CONNECT が付くため、同じサーバーの他 DB に接続できることがある。
+# 接続できても、その DB 内の権限が無ければ読めない。tvmvp 側の権限変更は TV_MVP を止める恐れがあるので行わない。監査 F-9）
+rows=$(psql "$DATABASE_URL_ADMIN" -At -c "select datname from pg_database where not datistemplate and datname <> current_database() and has_database_privilege('ballon_api', datname, 'connect')")
+if [[ -z "$rows" ]]; then echo "OK   他 DB への CONNECT なし"; else echo "情報 他 DB へ CONNECT 可（権限 0 行かを別途確認）: $(echo $rows | tr '\n' ' ')"; fi
+
 exit $fail
