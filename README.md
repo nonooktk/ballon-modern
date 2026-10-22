@@ -8,7 +8,7 @@
 | ディレクトリ | 内容 |
 | --- | --- |
 | `app/backend/` | FastAPI（Python 3.12） |
-| `app/frontend/` | Next.js（Node 22） |
+| `app/frontend/` | Next.js（Node 24） |
 | `db/` | マイグレーション（T2 で置く） |
 | `docs/` | 手順書（Azure・GitHub 設定） |
 | `infra/` | インフラ定義（現状は空） |

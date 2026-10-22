@@ -35,7 +35,7 @@ az account show --query '{name:name,id:id}' -o table
 | `max_connections` | 50（既定値。TV_MVP と共有） |
 | バックアップ | 保持 7 日・ジオ冗長なし |
 | Web App 名 | `app-ballon-api-nonooktk`・`app-ballon-web-nonooktk` は DNS 上で未使用（作成可能の見込み） |
-| ランタイム | `NODE:22-lts` と `PYTHON:3.12` が選べる |
+| ランタイム | `NODE:24-lts` と `PYTHON:3.12` が選べる |
 
 ## 1. Web App を 2 つ作る
 
@@ -43,8 +43,8 @@ az account show --query '{name:name,id:id}' -o table
 # API（Python 3.12）
 az webapp create -g "$RG" -p "$PLAN" -n "$API_APP" --runtime "PYTHON:3.12"
 
-# 画面（Node 22 LTS）
-az webapp create -g "$RG" -p "$PLAN" -n "$WEB_APP" --runtime "NODE:22-lts"
+# 画面（Node 24 LTS）
+az webapp create -g "$RG" -p "$PLAN" -n "$WEB_APP" --runtime "NODE:24-lts"
 
 # 共通の設定: HTTPS のみ・TLS 1.2 以上・FTP 無効・Always On（スリープ回避）
 for APP in "$API_APP" "$WEB_APP"; do
